@@ -35,16 +35,44 @@ def findnth(string, substring, n):
         return -1
     return len(string) - len(parts[-1]) - len(substring)
 
-
+keys = [
+    "Product ID",
+    "Variant ID",
+    "Product Type",
+    "Product Page",
+    "Product URL",
+    "Title",
+    "Description",
+    "SKU",
+    "Option Name 1",
+    "Option Value 1",
+    "Option Name 2",
+    "Option Value 2", 
+    "Option Name 3",
+    "Option Value 3",
+    "Price",
+    "Sale Price",
+    "On Sale",
+    "Stock",
+    "Categories",
+    "Tags",
+    "Weight",
+    "Length",
+    "Width",
+    "Height",
+    "Visible",
+    "Hosted Image URLs",
+]
 base_url = f"https://www.quelquechausse.com"
 # long, lat = 24.9227021,67.1200746 # change the longitude  and latitude values
 records = []
 pagesToScrape = ['homme', 'accessoires', 'femmes']
-for i in ['homme', 'accessoires', 'femmes']:
-    url = f"{base_url}/{i}"
+for j in pagesToScrape:
+    url = f"{base_url}/{j}"
     print(url)
     # sys.exit()
-    html = requests.get(url).content
+        
+    # html = requests.get(url).content
     html = getPageHtml(url)
     pageSoup = BeautifulSoup(html, features="html.parser")
 
@@ -52,70 +80,46 @@ for i in ['homme', 'accessoires', 'femmes']:
     # print(results_div)
     if results_div:
         results_a = results_div.findAll("a")
-        print(f"Getting Data for {len(results_a)} items in {i} page")
+        print(f"Getting Data for {len(results_a)} items in {j} page")
         
         for i in results_a:
-
-            html = requests.get(base_url+i["href"]).content
+            # html = requests.get(base_url+i["href"]).content
             html = getPageHtml(base_url+i["href"])
             print(base_url+i["href"])
             res_soup = BeautifulSoup(html, features='html.parser')
             record = dict()
-            record["Product ID"]=""
-            record["Variant ID"]=""
-            record["Product Type"]=""
-            record["Product Page"]=""
+            for key in keys:
+                record[key] = ""
+
             record["Product URL"]=base_url+i["href"]
-            try:            
-                record["Title"]=res_soup.find("h1", {"class":"ProductItem-details-title"}).getText()
+            try:
+                record["Title"]=res_soup.find("h1", {"class":"ProductItem-details-title"}).getText().strip()
             except Exception as e:
                 print(e)
                 print("Title not loaded")
             try:    
-                record["Description"]=res_soup.find("div", {"class":"ProductItem-details-excerpt"}).getText()
+                record["Description"]=res_soup.find("div", {"class":"ProductItem-details-excerpt"}).getText().strip()
             except Exception as e:
                 print(e)
                 print("Description not loaded")    
-            record["SKU"]=""
+
             selectDivs = res_soup.findAll("select")
-            record["Option Name 2"]=""
-            record["Option Value 2"]=""
-
-            record["Option Name 3"]=""
-            record["Option Value 3"]=""
-            for i in range(len(selectDivs)):
-                select = selectDivs[i]
-                record[f"Option Name {i+1}"]=select["data-variant-option-name"]
-                record[f"Option Value {i+1}"]=select["aria-label"]
-
 
             try:
-                record["Price"]=res_soup.find("div", {"class":"product-price"}).getText()
+                record["Price"]=res_soup.find("div", {"class":"product-price"}).getText().strip()
             except Exception as e:
                 print(e)
                 print("Price not loaded")
-            record["Sale Price"]=""
-            record["On Sale"]=""
-            record["Stock"]=""
-
-            record["Categories"]=i
-
-            record["Tags"]=""
-
-            record["Weight"]=""
-            record["Length"]=""
-            record["Width"]=""
-            record["Height"]=""
-
+         
             gallery = res_soup.find("img",{"class":"ProductItem-gallery-slides-item-image"})
             try:
-                record["Visible	Hosted Image URLs"]=gallery["data-src"]
+                record["Hosted Image URLs"]=gallery["data-src"]
             except:
                 try:
-                    record["Visible	Hosted Image URLs"]=gallery["src"]
+                    record["Hosted Image URLs"]=gallery["src"]
                 except:
                     try:
-                        record["Visible	Hosted Image URLs"]=gallery["data-image"]                
+                        record["Hosted Image URLs"]=gallery["data-image"]                
                     except Exception as e:
                         print(e)
                         print("Image link not loaded")
@@ -138,9 +142,19 @@ for i in ['homme', 'accessoires', 'femmes']:
             #             # print("Sheeesh")
             # else:
             #     print(gallery) 
-            # record["url"] = i["href"]        
-            records.append(record)
-    else:     
+            # record["url"] = i["href"]       
+            if len(selectDivs)>0:
+
+                for k in range(len(selectDivs)):
+                    select = selectDivs[k]
+                    record[f"Option Name {k+1}"]=select["data-variant-option-name"].strip()
+                    for n in select.findAll("option"):
+                        if n["value"]:
+                            record[f"Option Value {k+1}"]=n["value"].strip()
+                            records.append(record.copy())
+            else:
+                records.append(record)
+    else:
         print("The link was not loaded properly")
         print("Aborting...")
         sys.exit(1)
@@ -148,9 +162,6 @@ for i in ['homme', 'accessoires', 'femmes']:
     # To save the list of records to a csv file
 
 
-
-
-keys = records[0].keys()
 with open(f'Output_{datetime.now().strftime("%Y-%m-%d-%H-%M-%S")}.csv', 'w',encoding="utf-8", errors='surrogatepass', newline='') as output_file:
     dict_writer = csv.DictWriter(output_file, keys)
     dict_writer.writeheader()
